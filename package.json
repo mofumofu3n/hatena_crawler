@@ -1,0 +1,13 @@
+{
+  "author": "mofumofu3n <mofumofu3n@gmail.com>",
+  "name": "hatena_crawler",
+  "description": "crawler hatena entry",
+  "version": "0.0.0",
+  "dependencies": {},
+  "devDependencies": {},
+  "optionalDependencies": {},
+  "main": "app.js",
+  "engines": {
+    "node": "*"
+  }
+}
