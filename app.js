@@ -50,14 +50,25 @@ function saveArticles(requestUrl) { request(requestUrl)
             } 
             ];
             db.collection(COLL_NAME, function(err, collection) {
-                collection.insert(article, {safe:true}, function(err, result){
-                    if (err) {
-                        console.log('An erro has occurred');
-                    } else {
-                        console.log('Success: ' + JSON.stringify(result[0]));
+                collection.findOne({link: item.link}, function(err, item) {
+                if (err) {
+                    console.log("Error update article" + item.title);
+                } else {
+                    if(item == null) {
+                        db.collection(COLL_NAME, function(err, collection) {
+                            collection.insert(article, {safe:true}, function(err, result){
+                                if (err) {
+                                    console.log('An erro has occurred');
+                                } else {
+                                    console.log('Success Insert: '); 
+                                }
+                            })
+                        });
                     }
-                })
-            });
+                    console.log('No Change');
+                }
+                });
+           });
         }
        
     });
