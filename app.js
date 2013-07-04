@@ -8,7 +8,7 @@ var Server = mongo.Server,
     BSON = mongo.BSONPure;
 
 var DB_NAME = 'hatenadb';
-var COLL_NAME = 'articles';
+var COLL_NAME = 'test';
 
 // Server
 var server = new Server('localhost', 27017, {auto_reconnect: true});
@@ -22,16 +22,17 @@ db.open(function(err, db) {
                 // サンプルデータでコレクションを作成する
                 console.log("The 'articles' collection doesn't exist. Creating it with sample data...");
                 //sampleDB();
+            } else {
+                console.log("Connection db"); 
             }
         });
     }
 });
 
-var requestUrl = "http://b.hatena.ne.jp/entrylist/it?sort=hot&threshold=&mode=rss";
-
-function saveArticles(requestUrl) { request(requestUrl)
+function saveArticles(requestUrl) { request({url: requestUrl, pool:{maxSockets: 3}})
     .pipe(new parser())
     .on('error', function(err) {
+        console.dir('Error hoge: '+err);
     })
     .on('meta', function(meta) {
     })
@@ -49,26 +50,36 @@ function saveArticles(requestUrl) { request(requestUrl)
                 category: category.toString()
             } 
             ];
+
+            var startTime = new Date().getTime();
+            while(new Date().getTime() < startTime+500);
+
+            console.log('---------------Perform MongoDB--------------');
+
             db.collection(COLL_NAME, function(err, collection) {
-                collection.findOne({link: item.link}, function(err, item) {
-                if (err) {
-                    console.log("Error update article" + item.title);
-                } else {
-                    if(item == null) {
-                        db.collection(COLL_NAME, function(err, collection) {
-                            collection.insert(article, {safe:true}, function(err, result){
-                                if (err) {
-                                    console.log('An erro has occurred');
-                                } else {
-                                    console.log('Success Insert: '); 
-                                }
-                            })
-                        });
+                collection.findOne({link: item.link}, function(err, result) {
+                    if (err) {
+                        console.log(err);
+                        console.log('Error');
+                    } else {
+                        if(result == null) {
+                            console.log('--------------Add Article---------------');
+                            db.collection(COLL_NAME, function(err, collection) {
+                                collection.insert(article, {safe:true}, function(err, result){
+
+                                    if (err) {
+                                        console.log('--------An error has occurred');
+                                    } else {
+                                        console.log('--------Success Insert: '); 
+                                    }
+                                })
+                            });
+                        } else {
+                            console.log('------------------No Change---------------');
+                        }
                     }
-                    console.log('No Change');
-                }
                 });
-           });
+            });
         }
        
     });
@@ -87,4 +98,6 @@ var requestUrls = new Array(
 for (var i = 0; i < requestUrls.length; i++) {
     saveArticles(requestUrls[i]);    
 }
-return 0;
+
+process.on('SIGINT', function () {
+});
