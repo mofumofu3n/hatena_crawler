@@ -1,14 +1,23 @@
-var request = require('request'),
-    xml2json = require('xml2json'),
-    parser = require('feedparser'),
+/**
+ *
+ * Crawler Hatena RSS
+ *
+ */
+
+var fs = require('fs'),
+    Crawler = require('crawler').Crawler,
+    querystring = require('querystring'),
     mongo = require('mongodb');
 
+/**
+ * Setting mongoDB
+ */
 var Server = mongo.Server,
     Db = mongo.Db,
     BSON = mongo.BSONPure;
 
 var DB_NAME = 'hatenadb';
-var COLL_NAME = 'test';
+var COLL_NAME = 'entries';
 
 // Server
 var server = new Server('localhost', 27017, {auto_reconnect: true});
@@ -29,75 +38,84 @@ db.open(function(err, db) {
     }
 });
 
-function saveArticles(requestUrl) { request({url: requestUrl, pool:{maxSockets: 3}})
-    .pipe(new parser())
-    .on('error', function(err) {
-        console.dir('Error hoge: '+err);
-    })
-    .on('meta', function(meta) {
-    })
-    .on('readable', function() {
-        var stream = this, item;
-        while (item = stream.read()) {
-            var category = (item.categories)[0];
-            var article  = [
-            {   
-                title: item.title,
-                discription: item.description,
-                summary: item.summary,
-                date: item.date,
-                link: item.link,
-                category: category.toString()
-            } 
-            ];
 
-            var startTime = new Date().getTime();
-            while(new Date().getTime() < startTime+500);
 
-            console.log('---------------Perform MongoDB--------------');
+// Setting Crawler
+var c = new Crawler ({
+    "maxConnections":3,
+    
+    // This will be called for each crawled page 
+    "callback":function (err, result,$) {
+        if (err.errno == 49) {
+            var entries = JSON.parse(err.path).responseData.feed.entries;
+            
+            entries.forEach( function (entry) {
 
-            db.collection(COLL_NAME, function(err, collection) {
-                collection.findOne({link: item.link}, function(err, result) {
-                    if (err) {
-                        console.log(err);
-                        console.log('Error');
-                    } else {
-                        if(result == null) {
-                            console.log('--------------Add Article---------------');
-                            db.collection(COLL_NAME, function(err, collection) {
-                                collection.insert(article, {safe:true}, function(err, result){
+                // to BSON
+                var article = [
+                {
+                    title: entry.title,
+                    link: entry.link,
+                    date: entry.publishedDate,
+                    snippet: entry.contentSnippet,
+                    summary: entry.content,
+                    category: entry.categories.toString()
+                }
+                ];
 
-                                    if (err) {
-                                        console.log('--------An error has occurred');
-                                    } else {
-                                        console.log('--------Success Insert: '); 
-                                    }
-                                })
-                            });
+                // INSERT mongodb
+                db.collection(COLL_NAME, function (err, collection) {
+                    collection.findOne({link: entry.link}, function(err, result) {
+                        if (err) {
+                            console.log(err);
+                            console.log('----Error: FIND ON FROM MONGO------');
                         } else {
-                            console.log('------------------No Change---------------');
+                            if(result == null) {
+                                db.collection(COLL_NAME, function(err, collection) {
+                                    collection.insert(article, {safe:true}, function(err, result){
+                                        if (err) {
+                                            console.log('--------An error has occurred');
+                                        } else {
+                                            console.log('--------Success Insert: ' + entry.title); 
+                                        }
+                                    })
+                                });
+                            } else {
+                                console.log('-------No Change: ' + entry.title);
+                            }
                         }
-                    }
-                });
+                    });
+                }); 
             });
-        }
-       
+        } else {
+            console.log('----ERROR----');
+        } 
+    },
+
+    // Thre is no more queued requests
+    "onDrain":function() {
+        console.log("----END----");
+        process.exit(0);
+    }
+});
+        
+
+var GOOGLE_FEED_API = 'https://ajax.googleapis.com/ajax/services/feed/load?v=1.0&';
+var ARTICLE_NUM = 20;
+var LIST_PATH = 'list.json';
+
+fs.readFile(LIST_PATH,'utf-8', function (err, data) {
+    if (err) {
+        console.err("List file is not exists.");
+        process.exit(1);
+    }
+    // json to list
+    var list = eval('(' + data + ')');
+
+    list.forEach(function (rssUrl) {
+        // encode hatena rss
+        var encodeUrl = querystring.stringify({q:rssUrl, num:ARTICLE_NUM});
+        var url = GOOGLE_FEED_API + encodeUrl;
+        c.queue(url);
     });
-}
-
-var requestUrls = new Array(
-"http://b.hatena.ne.jp/entrylist/social?sort=hot&threshold=&mode=rss",
-"http://b.hatena.ne.jp/entrylist/economics?sort=hot&threshold=&mode=rss",
-"http://b.hatena.ne.jp/entrylist/life?sort=hot&threshold=&mode=rss",
-"http://b.hatena.ne.jp/entrylist/knowledge?sort=hot&threshold=&mode=rss",
-"http://b.hatena.ne.jp/entrylist/entertainment?sort=hot&threshold=&mode=rss",
-"http://b.hatena.ne.jp/entrylist/it?sort=hot&threshold=&mode=rss",
-"http://b.hatena.ne.jp/entrylist/game?sort=hot&threshold=&mode=rss",
-"http://b.hatena.ne.jp/entrylist/fun?sort=hot&threshold=&mode=rss"
-);
-for (var i = 0; i < requestUrls.length; i++) {
-    saveArticles(requestUrls[i]);    
-}
-
-process.on('SIGINT', function () {
 });
