@@ -5,6 +5,7 @@
  */
 
 var fs = require('fs'),
+    path = require('path'),
     Crawler = require('crawler').Crawler,
     querystring = require('querystring'),
     mongo = require('mongodb');
@@ -102,7 +103,7 @@ var c = new Crawler ({
 
 var GOOGLE_FEED_API = 'https://ajax.googleapis.com/ajax/services/feed/load?v=1.0&';
 var ARTICLE_NUM = 20;
-var LIST_PATH = 'list.json';
+var LIST_PATH = __dirname+ '/list.json';
 
 fs.readFile(LIST_PATH,'utf-8', function (err, data) {
     if (err) {

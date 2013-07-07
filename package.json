@@ -3,7 +3,10 @@
   "name": "hatena_crawler",
   "description": "crawler hatena entry",
   "version": "0.0.0",
-  "dependencies": {},
+  "dependencies": {
+    "crawler":"*",
+    "mongodb":"*"
+  },
   "devDependencies": {},
   "optionalDependencies": {},
   "main": "app.js",
