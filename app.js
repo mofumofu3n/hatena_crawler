@@ -138,3 +138,10 @@ var dateChanger = function(isoStr) {
     var date = new Date(isoStr);   
     return parseInt(date/1000);
 };
+
+/**
+ * 
+ */
+var subjectChanger = function(subject) {
+
+};
