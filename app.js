@@ -3,32 +3,30 @@
  * Crawler Hatena RSS
  *
  */
-
-var fs = require('fs'),
-path = require('path'),
-Crawler = require('crawler').Crawler,
-querystring = require('querystring'),
-mongo = require('mongodb');
+var fs = require('fs');
+var path = require('path');
+var Crawler = require('crawler').Crawler;
+var mongo = require('mongodb');
 
 /**
  * Setting mongoDB
  */
-var Server = mongo.Server,
-Db = mongo.Db,
-BSON = mongo.BSONPure;
+var Server = mongo.Server;
+var Db = mongo.Db;
+var BSON = mongo.BSONPure;
 
 var DB_NAME = 'hatenadb';
 var COLL_NAME = 'article';
 
 // Server
 var server = new Server('localhost', 27017, {auto_reconnect: true});
-db = new Db(DB_NAME, server);
+var db = new Db(DB_NAME, server);
 
 db.open(function(err, db) {
-    if(!err) {
+    if (!err) {
         console.log("Connected to 'articles' database");
         db.collection(COLL_NAME, {strict:true}, function(err, collection) {
-            if(err) {
+            if (err) {
                 // サンプルデータでコレクションを作成する
                 console.log("The 'articles' collection doesn't exist. Creating it with sample data...");
                 sampleDB();
@@ -50,54 +48,45 @@ var c = new Crawler ({
 
         $("item").each(function(i) {
             var title,url,description,content,date,subject,bookmark;
+            var article = {};
 
             $(this).children().each(function() {
                 var tag = $(this)[0].tagName;
 
-                if (tag == "TITLE") {
-                    title = $(this).text();
+                if (tag === "TITLE") {
+                    article.title = $(this).text();
                 }
 
-                if (tag == "DESCRIPTION") {
-                    description = $(this).text();
+                if (tag === "DESCRIPTION") {
+                    article.description = $(this).text();
                 }
 
-                if (tag == "CONTENT:ENCODED") {
-                    content = $(this).text();
+                if (tag === "CONTENT:ENCODED") {
+                    var content = $(this).text();
                     // conten内からURLを取得
                     $(content).each(function() {
-                        url = $(this).attr('cite');
+                        article.url = $(this).attr('cite');
                     });
                 }
 
-                if (tag == "DC:DATE") {
-                    date = dateChanger($(this).text());
+                if (tag === "DC:DATE") {
+                    article.date = dateChanger($(this).text());
                 }
 
-                if (tag == "DC:SUBJECT") {
-                    subject = $(this).text();
+                if (tag === "DC:SUBJECT") {
+                    article.subject = $(this).text();
                 }
 
-                if (tag == "HATENA:BOOKMARKCOUNT") {
-                    bookmark = $(this).text();
+                if (tag === "HATENA:BOOKMARKCOUNT") {
+                    article.bookmark = $(this).text();
                 }
             });
 
-            var article = {
-                title: title,
-                url: url,
-                description: description,
-                content: content,
-                date: date,
-                subject: subject,
-                bookmark: bookmark
-            };
-
             // 既に保存されていれば、updateし、なければinsert
             db.collection(COLL_NAME, function (err, collection) {
-                collection.update({title: article.title}, article, {safe:true, upsert:true}, function (err, result) {
+                collection.update({title: article.title, }, article, {safe:true, upsert:true}, function (err, result) {
                     if (err) {
-                        console.log(err);
+                        console.log(err.message);
                     } else {
                         console.log(result);
                     }
@@ -113,9 +102,15 @@ var c = new Crawler ({
     }
 });
 
+
+/**
+ *  クロールするURLのパス
+ */
 var LIST_PATH = __dirname+ '/list.json';
 
-// リスト読み込み
+/**
+ * リスト読み込み
+ */
 fs.readFile(LIST_PATH,'utf-8', function (err, data) {
     if (err) {
         console.err("List file is not exists.");
@@ -140,8 +135,21 @@ var dateChanger = function(isoStr) {
 };
 
 /**
- * 
+ * サンプル用データ
  */
-var subjectChanger = function(subject) {
+var sampleDB = function() {
+    var article = [
+        {
+        title: "dummy",
+        url: "http://dummy.com",
+        description: "dummydummy",
+        content: "dummy",
+        date: "1373554397",
+        subject: "dummy",
+        bookmark: "4" 
+    }];
 
+    db.collection(COLL_NAME, function (err, collection) {
+        collection.insert(article, {safe:true}, function (err, result) {});
+    });
 };
